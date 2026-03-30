@@ -1,0 +1,18 @@
+repos:
+  # Each repo lists ALL environments it supports (dev, staging, prod).
+  # platform-runner iterates every repo × environment combination.
+  # Omitting an environment from the list means it is never executed for that repo.
+  # An empty environments list is invalid — the runner will log a warning and skip.
+  - name: your-org/infra-repo
+    environments: [dev, staging, prod]
+    tf_working_dir: terraform/
+    template_ref: terraform-infra
+    enabled: true
+
+  - name: your-org/app-service
+    environments: [dev, staging, prod]
+    enabled: true
+
+  - name: your-org/legacy-service
+    # Disabled repos are never scanned or executed regardless of environments.
+    enabled: false
