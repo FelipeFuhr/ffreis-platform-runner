@@ -11,7 +11,7 @@ FROM golang:1.25.8-alpine AS builder
 
 WORKDIR /src
 
-RUN apk add --no-cache build-base
+RUN apk add --no-cache build-base git
 
 # Download dependencies before copying source (improves layer caching).
 COPY go.mod go.sum ./
