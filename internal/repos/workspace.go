@@ -124,9 +124,23 @@ func (w *Workspace) newGitCmd(ctx context.Context, args ...string) (*exec.Cmd, e
 	if err != nil {
 		return nil, err
 	}
-	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
-	// `bin` is resolved from a fixed allowlist of system directories in `gitBinary()`.
-	cmd := exec.CommandContext(ctx, bin, args...)
+	var cmd *exec.Cmd
+	switch bin {
+	case "/usr/local/sbin/git":
+		cmd = exec.CommandContext(ctx, "/usr/local/sbin/git", args...)
+	case "/usr/local/bin/git":
+		cmd = exec.CommandContext(ctx, "/usr/local/bin/git", args...)
+	case "/usr/sbin/git":
+		cmd = exec.CommandContext(ctx, "/usr/sbin/git", args...)
+	case "/usr/bin/git":
+		cmd = exec.CommandContext(ctx, "/usr/bin/git", args...)
+	case "/sbin/git":
+		cmd = exec.CommandContext(ctx, "/sbin/git", args...)
+	case "/bin/git":
+		cmd = exec.CommandContext(ctx, "/bin/git", args...)
+	default:
+		return nil, fmt.Errorf("git binary %q is outside the fixed allowlist", bin)
+	}
 	cmd.Env = w.gitEnv()
 	return cmd, nil
 }
