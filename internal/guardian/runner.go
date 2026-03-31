@@ -46,9 +46,8 @@ func (g *GuardianRunner) Check(ctx context.Context, repo string) (*GuardianResul
 		"--format", "json",
 	}
 
-	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	// exec.Command does not invoke a shell; binary and args are passed as-is.
-	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd := exec.CommandContext(ctx, binary, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	// Build a minimal environment: only GITHUB_TOKEN.
 	// Parent shell environment is not forwarded to prevent accidental
 	// credential or path leakage into the child process.

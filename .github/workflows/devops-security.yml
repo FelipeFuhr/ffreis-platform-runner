@@ -98,4 +98,3 @@ jobs:
     with:
       working-directory: "."
       upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-    secrets: {}

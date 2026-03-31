@@ -81,6 +81,84 @@ func shouldSanitizeOriginURL(originURL string) bool {
 	return false
 }
 
+func (w *Workspace) clone(ctx context.Context, dir string) error {
+	if err := os.MkdirAll(filepath.Dir(dir), 0o750); err != nil {
+		return fmt.Errorf("creating workspace parent dir: %w", err)
+	}
+	// #nosec G204 -- command and flags are constant; user-provided repo is validated and passed as a single argument (no shell).
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", w.remoteURL(), dir)
+	cmd.Env = w.gitEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git clone failed: %w", sanitizeOutput(string(out), w.Token))
+	}
+	return nil
+}
+
+func (w *Workspace) sanitizeOrigin(ctx context.Context, dir string) error {
+	// If the repo was cloned previously with an embedded token URL, sanitize it.
+	// Do not overwrite non-GitHub origins (tests use local bare remotes).
+	getURLCmd := exec.CommandContext(ctx, "git", "-C", dir, "remote", "get-url", "origin")
+	getURLCmd.Env = w.gitEnv()
+	out, err := getURLCmd.CombinedOutput()
+	if err != nil {
+		// Best-effort: if we can't read the origin, don't fail the whole Ensure.
+		return nil
+	}
+
+	originURL := strings.TrimSpace(string(out))
+	if !shouldSanitizeOriginURL(originURL) {
+		return nil
+	}
+
+	setURLCmd := exec.CommandContext(ctx, "git", "-C", dir, "remote", "set-url", "origin", w.remoteURL())
+	setURLCmd.Env = w.gitEnv()
+	if out, err := setURLCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git remote set-url failed: %w", sanitizeOutput(string(out), w.Token))
+	}
+	return nil
+}
+
+func (w *Workspace) fetch(ctx context.Context, dir string) error {
+	fetchCmd := exec.CommandContext(ctx, "git", "-C", dir, "fetch", "--depth", "1", "origin")
+	fetchCmd.Env = w.gitEnv()
+	if out, err := fetchCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git fetch failed: %w", sanitizeOutput(string(out), w.Token))
+	}
+	return nil
+}
+
+func (w *Workspace) hardReset(ctx context.Context, dir, target string) error {
+	resetCmd := exec.CommandContext(ctx, "git", "-C", dir, "reset", "--hard", target)
+	resetCmd.Env = w.gitEnv()
+	if out, err := resetCmd.CombinedOutput(); err != nil {
+		return sanitizeOutput(string(out), w.Token)
+	}
+	return nil
+}
+
+func (w *Workspace) resetToLatestFetched(ctx context.Context, dir string) error {
+	if err := w.hardReset(ctx, dir, "origin/HEAD"); err == nil {
+		return nil
+	}
+	// Fallback: FETCH_HEAD is populated by the previous fetch invocation.
+	// Some repos may not have origin/HEAD configured locally.
+	if err := w.hardReset(ctx, dir, "FETCH_HEAD"); err != nil {
+		return fmt.Errorf("git reset failed: %w", err)
+	}
+	return nil
+}
+
+func gitDirExists(dir string) (bool, error) {
+	_, err := os.Stat(filepath.Join(dir, ".git"))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // Ensure clones the repo if not present, or fetches and resets to HEAD if already cloned.
 func (w *Workspace) Ensure(ctx context.Context) error {
 	if err := w.validate(); err != nil {
@@ -89,59 +167,22 @@ func (w *Workspace) Ensure(ctx context.Context) error {
 
 	dir := w.Dir()
 
-	_, err := os.Stat(filepath.Join(dir, ".git"))
-	if os.IsNotExist(err) {
-		// Clone fresh.
-		if err := os.MkdirAll(filepath.Dir(dir), 0o750); err != nil {
-			return fmt.Errorf("creating workspace parent dir: %w", err)
-		}
-		// #nosec G204 -- command and flags are constant; user-provided repo is validated and passed as a single argument (no shell).
-		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", w.remoteURL(), dir)
-		cmd.Env = w.gitEnv()
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git clone failed: %w", sanitizeOutput(string(out), w.Token))
-		}
-		return nil
-	}
+	exists, err := gitDirExists(dir)
 	if err != nil {
 		return fmt.Errorf("checking workspace dir %q: %w", dir, err)
 	}
-
-	// If the repo was cloned previously with an embedded token URL, sanitize it.
-	// Do not overwrite non-GitHub origins (tests use local bare remotes).
-	getURLCmd := exec.CommandContext(ctx, "git", "-C", dir, "remote", "get-url", "origin")
-	getURLCmd.Env = w.gitEnv()
-	if out, err := getURLCmd.CombinedOutput(); err == nil {
-		originURL := strings.TrimSpace(string(out))
-		if shouldSanitizeOriginURL(originURL) {
-			setURLCmd := exec.CommandContext(ctx, "git", "-C", dir, "remote", "set-url", "origin", w.remoteURL())
-			setURLCmd.Env = w.gitEnv()
-			if out, err := setURLCmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("git remote set-url failed: %w", sanitizeOutput(string(out), w.Token))
-			}
-		}
+	if !exists {
+		return w.clone(ctx, dir)
 	}
 
-	// Repo already cloned — fetch and reset.
-	fetchCmd := exec.CommandContext(ctx, "git", "-C", dir, "fetch", "--depth", "1", "origin")
-	fetchCmd.Env = w.gitEnv()
-	if out, err := fetchCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git fetch failed: %w", sanitizeOutput(string(out), w.Token))
+	if err := w.sanitizeOrigin(ctx, dir); err != nil {
+		return err
 	}
-
-	resetTarget := "origin/HEAD"
-	resetCmd := exec.CommandContext(ctx, "git", "-C", dir, "reset", "--hard", resetTarget)
-	resetCmd.Env = w.gitEnv()
-	if out, err := resetCmd.CombinedOutput(); err != nil {
-		// Fallback: FETCH_HEAD is populated by the previous fetch invocation.
-		// Some repos may not have origin/HEAD configured locally.
-		fallbackCmd := exec.CommandContext(ctx, "git", "-C", dir, "reset", "--hard", "FETCH_HEAD")
-		fallbackCmd.Env = w.gitEnv()
-		if out2, err2 := fallbackCmd.CombinedOutput(); err2 != nil {
-			return fmt.Errorf("git reset failed: %w", sanitizeOutput(string(out)+"\n"+string(out2), w.Token))
-		}
+	if err := w.fetch(ctx, dir); err != nil {
+		return err
+	}
+	if err := w.resetToLatestFetched(ctx, dir); err != nil {
+		return err
 	}
 
 	return nil
