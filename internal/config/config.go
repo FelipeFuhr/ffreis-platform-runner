@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+var newDynamoLoader = NewDynamoLoader
+
 // RepoConfig describes one repository to be managed.
 type RepoConfig struct {
 	Name         string            // "org/repo" format
@@ -25,7 +27,7 @@ type Loader interface {
 func Load(ctx context.Context, tableName, fallbackPath string) ([]RepoConfig, error) {
 	var loader Loader
 	if tableName != "" {
-		dl, err := NewDynamoLoader(ctx, tableName)
+		dl, err := newDynamoLoader(ctx, tableName)
 		if err != nil {
 			return nil, fmt.Errorf("creating dynamo loader: %w", err)
 		}

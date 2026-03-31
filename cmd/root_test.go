@@ -89,3 +89,33 @@ func TestRootCmd_Help(t *testing.T) {
 		t.Fatalf("expected help output")
 	}
 }
+
+func TestBuildDeps_InvalidLogLevel(t *testing.T) {
+	origConfig := flagConfig
+	origLogLevel := flagLogLevel
+	t.Cleanup(func() {
+		flagConfig = origConfig
+		flagLogLevel = origLogLevel
+	})
+
+	flagConfig = filepath.Join(t.TempDir(), "missing.yaml")
+	flagLogLevel = "invalid"
+
+	c := &cobra.Command{}
+	c.SetContext(context.Background())
+
+	_, err := buildDeps(c)
+	if err == nil || err.Error() == "" {
+		t.Fatal("expected buildDeps() to fail")
+	}
+}
+
+func TestExecute_Help(t *testing.T) {
+	origArgs := os.Args
+	t.Cleanup(func() { os.Args = origArgs })
+
+	os.Args = []string{"platform-runner", "--help"}
+	if err := Execute(); err != nil {
+		t.Fatalf("Execute() unexpected error: %v", err)
+	}
+}

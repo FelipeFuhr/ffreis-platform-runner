@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -282,5 +283,207 @@ func TestSyncTemplate_DryRun(t *testing.T) {
 	}
 	if len(report.Results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(report.Results))
+	}
+}
+
+func TestNewRunner_Defaults(t *testing.T) {
+	r := NewRunner(nil, &mockExecutor{}, RunnerOptions{})
+	if r.concurrency != 5 {
+		t.Fatalf("concurrency = %d, want 5", r.concurrency)
+	}
+	if r.log == nil {
+		t.Fatal("expected logger to be initialized")
+	}
+}
+
+func TestRunnerBuildTasks(t *testing.T) {
+	r := NewRunner([]config.RepoConfig{
+		{Name: testRepoA, Environments: []string{testEnvDev, testEnvProd}, Enabled: true},
+		{Name: testRepoB, Environments: nil, Enabled: true},
+		{Name: "example-org/disabled", Environments: []string{testEnvDev}, Enabled: false},
+	}, &mockExecutor{}, RunnerOptions{Log: testLogger()})
+
+	tasks := r.buildTasks()
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+}
+
+func TestRunnerRunPool(t *testing.T) {
+	r := NewRunner(nil, &mockExecutor{}, RunnerOptions{Concurrency: 2, Log: testLogger()})
+	tasks := []task{
+		{repo: config.RepoConfig{Name: testRepoA}, env: testEnvDev},
+		{repo: config.RepoConfig{Name: testRepoB}, env: testEnvProd},
+	}
+
+	results := r.runPool(context.Background(), tasks, func(_ context.Context, t task) RepoResult {
+		return RepoResult{Repo: t.repo.Name, Env: t.env, Status: RepoStatusSuccess}
+	})
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+}
+
+func TestNewReport(t *testing.T) {
+	report := newReport(actionValidate)
+	if report.Action != actionValidate {
+		t.Fatalf("Action = %q, want %q", report.Action, actionValidate)
+	}
+	if report.StartedAt == "" {
+		t.Fatal("expected StartedAt to be set")
+	}
+}
+
+func TestApplyAll_NoTasksWithConfirm(t *testing.T) {
+	r := NewRunner([]config.RepoConfig{
+		{Name: "example-org/disabled", Environments: []string{testEnvDev}, Enabled: false},
+	}, &mockExecutor{}, RunnerOptions{
+		Workspace: t.TempDir(),
+		Log:       testLogger(),
+	})
+
+	report, err := r.ApplyAll(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ApplyAll() unexpected error: %v", err)
+	}
+	if len(report.Results) != 0 {
+		t.Fatalf("expected no results, got %d", len(report.Results))
+	}
+}
+
+func TestValidate_UsesGuardianBinaryOnPath(t *testing.T) {
+	tmp := t.TempDir()
+	argsFile := filepath.Join(tmp, "repos.txt")
+	stubPath := filepath.Join(tmp, "platform-guardian")
+	stub := `#!/bin/sh
+set -eu
+printf '%s\n' "$3" >> "` + argsFile + `"
+printf '%s' '{"passed":true,"failures":[]}'
+`
+	if err := os.WriteFile(stubPath, []byte(stub), 0o755); err != nil {
+		t.Fatalf("WriteFile(stub): %v", err)
+	}
+
+	origPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", tmp+string(os.PathListSeparator)+origPath); err != nil {
+		t.Fatalf("Setenv(PATH): %v", err)
+	}
+	t.Cleanup(func() { _ = os.Setenv("PATH", origPath) })
+
+	cfg := []config.RepoConfig{
+		{Name: testRepoA, Enabled: true},
+		{Name: "example-org/disabled", Enabled: false},
+	}
+	r := NewRunner(cfg, &mockExecutor{}, RunnerOptions{Concurrency: 1, Log: testLogger()})
+
+	report, err := r.Validate(context.Background())
+	if err != nil {
+		t.Fatalf("Validate() unexpected error: %v", err)
+	}
+	if len(report.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(report.Results))
+	}
+	if report.Results[0].Status != RepoStatusSuccess {
+		t.Fatalf("expected success result, got %+v", report.Results[0])
+	}
+}
+
+func TestValidate_GuardianFailureMarksRepoFailed(t *testing.T) {
+	tmp := t.TempDir()
+	stubPath := filepath.Join(tmp, "platform-guardian")
+	stub := `#!/bin/sh
+set -eu
+printf '%s\n' 'guardian failed' 1>&2
+exit 4
+`
+	if err := os.WriteFile(stubPath, []byte(stub), 0o755); err != nil {
+		t.Fatalf("WriteFile(stub): %v", err)
+	}
+
+	origPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", tmp+string(os.PathListSeparator)+origPath); err != nil {
+		t.Fatalf("Setenv(PATH): %v", err)
+	}
+	t.Cleanup(func() { _ = os.Setenv("PATH", origPath) })
+
+	r := NewRunner([]config.RepoConfig{{Name: testRepoA, Enabled: true}}, &mockExecutor{}, RunnerOptions{
+		Concurrency: 1,
+		Log:         testLogger(),
+	})
+
+	report, err := r.Validate(context.Background())
+	if err != nil {
+		t.Fatalf("Validate() unexpected error: %v", err)
+	}
+	if len(report.Results) != 1 || report.Results[0].Status != RepoStatusFailed {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+}
+
+func TestApplyAll_Success(t *testing.T) {
+	mock := &mockExecutor{
+		applyResult: &executor.ExecResult{ExitCode: 0, Stdout: "applied"},
+	}
+
+	cfg := []config.RepoConfig{
+		{Name: testRepoA, Environments: []string{testEnvDev}, Enabled: true},
+	}
+	wsDir := t.TempDir()
+	preCreateWorkspace(t, wsDir, cfg)
+
+	r := NewRunner(cfg, mock, RunnerOptions{
+		Workspace:   wsDir,
+		Concurrency: 1,
+		Log:         testLogger(),
+	})
+
+	report, err := r.ApplyAll(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ApplyAll() unexpected error: %v", err)
+	}
+	if len(report.Results) != 1 || report.Results[0].Status != RepoStatusSuccess {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+}
+
+func TestSyncTemplate_SuccessAndFailure(t *testing.T) {
+	cfg := []config.RepoConfig{
+		{Name: testRepoA, Environments: []string{testEnvDev}, Enabled: true},
+	}
+	wsDir := t.TempDir()
+	preCreateWorkspace(t, wsDir, cfg)
+
+	templateDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(templateDir, "README.md"), []byte("template"), 0o644); err != nil {
+		t.Fatalf("WriteFile(template): %v", err)
+	}
+
+	r := NewRunner(cfg, &mockExecutor{}, RunnerOptions{
+		TemplateDir: templateDir,
+		Workspace:   wsDir,
+		Concurrency: 1,
+		Log:         testLogger(),
+	})
+
+	report, err := r.SyncTemplate(context.Background())
+	if err != nil {
+		t.Fatalf("SyncTemplate() unexpected error: %v", err)
+	}
+	if len(report.Results) != 1 || report.Results[0].Status != RepoStatusSuccess {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+
+	r = NewRunner(cfg, &mockExecutor{}, RunnerOptions{
+		TemplateDir: filepath.Join(t.TempDir(), "missing"),
+		Workspace:   wsDir,
+		Concurrency: 1,
+		Log:         testLogger(),
+	})
+	report, err = r.SyncTemplate(context.Background())
+	if err != nil {
+		t.Fatalf("SyncTemplate() unexpected error: %v", err)
+	}
+	if len(report.Results) != 1 || report.Results[0].Status != RepoStatusFailed {
+		t.Fatalf("unexpected failure report: %+v", report)
 	}
 }

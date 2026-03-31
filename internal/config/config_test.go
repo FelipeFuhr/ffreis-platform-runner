@@ -31,11 +31,22 @@ repos:
 func loadReposFromYAML(t *testing.T, yaml string) []RepoConfig {
 	t.Helper()
 
+	loader := &YAMLLoader{Path: writeYAMLConfig(t, yaml)}
+	repos, err := loader.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	return repos
+}
+
+func writeYAMLConfig(t *testing.T, yaml string) string {
+	t.Helper()
+
 	f, err := os.CreateTemp("", "config-*.yaml")
 	if err != nil {
 		t.Fatalf("creating temp file: %v", err)
 	}
-	defer os.Remove(f.Name())
+	t.Cleanup(func() { _ = os.Remove(f.Name()) })
 
 	if _, err := f.WriteString(yaml); err != nil {
 		t.Fatalf("writing temp file: %v", err)
@@ -44,12 +55,7 @@ func loadReposFromYAML(t *testing.T, yaml string) []RepoConfig {
 		t.Fatalf("closing temp file: %v", err)
 	}
 
-	loader := &YAMLLoader{Path: f.Name()}
-	repos, err := loader.Load(context.Background())
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-	return repos
+	return f.Name()
 }
 
 func TestYAMLLoad(t *testing.T) {

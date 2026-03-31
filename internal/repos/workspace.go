@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 var repoNamePattern = regexp.MustCompile(`\A[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+\z`)
@@ -32,10 +33,47 @@ func (w *Workspace) remoteURL() string {
 	return fmt.Sprintf("https://github.com/%s.git", w.Repo)
 }
 
+const fixedGitPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+var (
+	gitBinaryOnce sync.Once
+	gitBinaryPath string
+	gitBinaryErr  error
+)
+
+func gitBinary() (string, error) {
+	gitBinaryOnce.Do(func() {
+		// Intentionally search only fixed system directories.
+		for _, dir := range []string{"/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"} {
+			path := filepath.Join(dir, "git")
+			info, err := os.Stat(path)
+			if err != nil {
+				continue
+			}
+			if info.IsDir() {
+				continue
+			}
+			if info.Mode()&0o111 == 0 {
+				continue
+			}
+			gitBinaryPath = path
+			return
+		}
+		gitBinaryErr = fmt.Errorf("git binary not found in fixed system PATH")
+	})
+	return gitBinaryPath, gitBinaryErr
+}
+
 func (w *Workspace) gitEnv() []string {
-	env := os.Environ()
-	// Ensure git never blocks prompting for credentials.
-	env = append(env, "GIT_TERMINAL_PROMPT=0")
+	// Do not inherit the parent environment. In particular, keep PATH fixed so
+	// subprocess execution cannot be influenced by writable directories.
+	env := []string{
+		"PATH=" + fixedGitPath,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	}
 
 	if w.Token == "" {
 		return env
@@ -81,13 +119,24 @@ func shouldSanitizeOriginURL(originURL string) bool {
 	return false
 }
 
+func (w *Workspace) newGitCmd(ctx context.Context, args ...string) (*exec.Cmd, error) {
+	bin, err := gitBinary()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = w.gitEnv()
+	return cmd, nil
+}
+
 func (w *Workspace) clone(ctx context.Context, dir string) error {
 	if err := os.MkdirAll(filepath.Dir(dir), 0o750); err != nil {
 		return fmt.Errorf("creating workspace parent dir: %w", err)
 	}
-	// #nosec G204 -- command and flags are constant; user-provided repo is validated and passed as a single argument (no shell).
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", w.remoteURL(), dir)
-	cmd.Env = w.gitEnv()
+	cmd, err := w.newGitCmd(ctx, "clone", "--depth", "1", w.remoteURL(), dir)
+	if err != nil {
+		return err
+	}
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git clone failed: %w", sanitizeOutput(string(out), w.Token))
 	}
@@ -97,8 +146,10 @@ func (w *Workspace) clone(ctx context.Context, dir string) error {
 func (w *Workspace) sanitizeOrigin(ctx context.Context, dir string) error {
 	// If the repo was cloned previously with an embedded token URL, sanitize it.
 	// Do not overwrite non-GitHub origins (tests use local bare remotes).
-	getURLCmd := exec.CommandContext(ctx, "git", "-C", dir, "remote", "get-url", "origin")
-	getURLCmd.Env = w.gitEnv()
+	getURLCmd, err := w.newGitCmd(ctx, "-C", dir, "remote", "get-url", "origin")
+	if err != nil {
+		return err
+	}
 	out, err := getURLCmd.CombinedOutput()
 	if err != nil {
 		// Best-effort: if we can't read the origin, don't fail the whole Ensure.
@@ -110,8 +161,10 @@ func (w *Workspace) sanitizeOrigin(ctx context.Context, dir string) error {
 		return nil
 	}
 
-	setURLCmd := exec.CommandContext(ctx, "git", "-C", dir, "remote", "set-url", "origin", w.remoteURL())
-	setURLCmd.Env = w.gitEnv()
+	setURLCmd, err := w.newGitCmd(ctx, "-C", dir, "remote", "set-url", "origin", w.remoteURL())
+	if err != nil {
+		return err
+	}
 	if out, err := setURLCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git remote set-url failed: %w", sanitizeOutput(string(out), w.Token))
 	}
@@ -119,8 +172,10 @@ func (w *Workspace) sanitizeOrigin(ctx context.Context, dir string) error {
 }
 
 func (w *Workspace) fetch(ctx context.Context, dir string) error {
-	fetchCmd := exec.CommandContext(ctx, "git", "-C", dir, "fetch", "--depth", "1", "origin")
-	fetchCmd.Env = w.gitEnv()
+	fetchCmd, err := w.newGitCmd(ctx, "-C", dir, "fetch", "--depth", "1", "origin")
+	if err != nil {
+		return err
+	}
 	if out, err := fetchCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git fetch failed: %w", sanitizeOutput(string(out), w.Token))
 	}
@@ -128,8 +183,10 @@ func (w *Workspace) fetch(ctx context.Context, dir string) error {
 }
 
 func (w *Workspace) hardReset(ctx context.Context, dir, target string) error {
-	resetCmd := exec.CommandContext(ctx, "git", "-C", dir, "reset", "--hard", target)
-	resetCmd.Env = w.gitEnv()
+	resetCmd, err := w.newGitCmd(ctx, "-C", dir, "reset", "--hard", target)
+	if err != nil {
+		return err
+	}
 	if out, err := resetCmd.CombinedOutput(); err != nil {
 		return sanitizeOutput(string(out), w.Token)
 	}

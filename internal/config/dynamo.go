@@ -12,16 +12,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+type dynamoScanner interface {
+	Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
+}
+
 // DynamoLoader loads RepoConfig items from a DynamoDB table.
 // Items must have PK = "RUNNER#repos" and a "config" attribute containing JSON.
 type DynamoLoader struct {
-	client    *dynamodb.Client
+	client    dynamoScanner
 	tableName string
 }
 
+var loadDefaultAWSConfig = awsconfig.LoadDefaultConfig
+
 // NewDynamoLoader creates a DynamoLoader using the default AWS SDK config.
 func NewDynamoLoader(ctx context.Context, tableName string) (*DynamoLoader, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(ctx)
+	cfg, err := loadDefaultAWSConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}

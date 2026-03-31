@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -180,5 +182,29 @@ func TestSync_Identical_Unchanged(t *testing.T) {
 	}
 	if len(result.Skipped) != 0 {
 		t.Errorf("expected no skipped files, got %v", result.Skipped)
+	}
+}
+
+func TestLoggerOrNopAndWriteIfNotDryRun(t *testing.T) {
+	if loggerOrNop(nil) == nil {
+		t.Fatal("expected loggerOrNop(nil) to return a logger")
+	}
+	if got := loggerOrNop(zap.NewNop()); got == nil {
+		t.Fatal("expected loggerOrNop(non-nil) to return the logger")
+	}
+
+	tmpDir := t.TempDir()
+	err := writeIfNotDryRun(SyncOptions{RepoDir: tmpDir}, FileDiff{
+		Path:     "nested/file.txt",
+		Template: "content",
+		Status:   DiffSourceOnly,
+	}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("writeIfNotDryRun() unexpected error: %v", err)
+	}
+
+	got := readFile(t, filepath.Join(tmpDir, "nested/file.txt"))
+	if got != "content" {
+		t.Fatalf("unexpected content: %q", got)
 	}
 }
