@@ -27,6 +27,8 @@ func (t *TerraformExecutor) Plan(ctx context.Context, opts ExecOptions) (*ExecRe
 		args = append(args, "-var", fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
+	// terraformBinary is a package constant ("terraform"); args are fixed flags.
 	cmd := exec.CommandContext(ctx, terraformBinary, args...)
 	cmd.Dir = opts.WorkDir
 	cmd.Env = buildEnv(opts.Env)
@@ -83,6 +85,8 @@ func (t *TerraformExecutor) Apply(ctx context.Context, opts ExecOptions) (*ExecR
 		terraformPlanFile,
 	}
 
+	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
+	// terraformBinary is a package constant ("terraform"); args are fixed flags.
 	cmd := exec.CommandContext(ctx, terraformBinary, args...)
 	cmd.Dir = opts.WorkDir
 	cmd.Env = buildEnv(opts.Env)

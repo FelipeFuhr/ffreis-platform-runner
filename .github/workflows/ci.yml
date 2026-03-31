@@ -24,7 +24,7 @@ concurrency:
 
 env:
   GO_VERSION: "1.25.8"
-  GOLANGCI_LINT_VERSION: "v1.57.2"
+  GOLANGCI_LINT_VERSION: "v2.11.3"
   IMAGE: ${{ github.event.repository.name }}
 
 jobs:
@@ -42,12 +42,12 @@ jobs:
       working-directory: "."
       scan-history: true
       upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-
+  
   fmt:
     name: Format (gofmt)
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
     with:
-      go-version: ${{ env.GO_VERSION }}
+      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
       working-directory: "."
 
   # ── 3. Vet + Lint ──────────────────────────────────────────────────────────
@@ -56,8 +56,8 @@ jobs:
     needs: [fmt]
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-lint.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
     with:
-      go-version: ${{ env.GO_VERSION }}
-      golangci-lint-version: ${{ env.GOLANGCI_LINT_VERSION }}
+      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
+      golangci-lint-version: ${{ vars.GOLANGCI_LINT_VERSION || 'v2.11.3' }}
       working-directory: "."
       lint-args: "--timeout=5m"
 
@@ -67,11 +67,29 @@ jobs:
     needs: [fmt]
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
     with:
-      go-version: ${{ env.GO_VERSION }}
+      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
       working-directory: "."
       test-timeout: "120s"
-      run-govulncheck: true
+      run-govulncheck: false
       coverage-artifact-name: "coverage"
+
+  govulncheck:
+    name: Dependency Security (govulncheck)
+    runs-on: ubuntu-latest
+    needs: [fmt]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          work-dir: .
+          cache: true
+          go-package: ./...
+          output-format: text
 
   # ── 5. Container test stage ────────────────────────────────────────────────
   # Builds the 'test' Containerfile stage which re-runs tests inside the same
