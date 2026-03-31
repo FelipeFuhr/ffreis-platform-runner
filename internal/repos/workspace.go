@@ -124,6 +124,8 @@ func (w *Workspace) newGitCmd(ctx context.Context, args ...string) (*exec.Cmd, e
 	if err != nil {
 		return nil, err
 	}
+	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
+	// `bin` is resolved from a fixed allowlist of system directories in `gitBinary()`.
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Env = w.gitEnv()
 	return cmd, nil

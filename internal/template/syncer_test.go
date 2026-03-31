@@ -194,12 +194,11 @@ func TestLoggerOrNopAndWriteIfNotDryRun(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	err := writeIfNotDryRun(SyncOptions{RepoDir: tmpDir}, FileDiff{
+	if err := writeIfNotDryRun(SyncOptions{RepoDir: tmpDir}, FileDiff{
 		Path:     "nested/file.txt",
 		Template: "content",
 		Status:   DiffSourceOnly,
-	}, zap.NewNop())
-	if err != nil {
+	}, zap.NewNop()); err != nil {
 		t.Fatalf("writeIfNotDryRun() unexpected error: %v", err)
 	}
 

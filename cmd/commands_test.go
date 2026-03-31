@@ -128,8 +128,7 @@ func TestApplyAllCmd_RunE_MutuallyExclusiveFlags(t *testing.T) {
 	applyAllConfirm = true
 
 	applyAllCmd.SetContext(context.Background())
-	err := applyAllCmd.RunE(applyAllCmd, nil)
-	if err == nil || err.Error() != "--dry-run and --confirm are mutually exclusive" {
+	if err := applyAllCmd.RunE(applyAllCmd, nil); err == nil || err.Error() != "--dry-run and --confirm are mutually exclusive" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
