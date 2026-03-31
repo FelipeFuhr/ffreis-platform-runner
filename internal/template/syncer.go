@@ -91,7 +91,7 @@ func writeIfNotDryRun(opts SyncOptions, d FileDiff, log *zap.Logger) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
 		return fmt.Errorf("creating directory for %q: %w", dest, err)
 	}
-	if err := os.WriteFile(dest, []byte(d.Template), 0o644); err != nil {
+	if err := os.WriteFile(dest, []byte(d.Template), 0o600); err != nil {
 		return fmt.Errorf("writing file %q: %w", dest, err)
 	}
 	log.Info("applied template file", zap.String("file", d.Path), zap.String("status", string(d.Status)))

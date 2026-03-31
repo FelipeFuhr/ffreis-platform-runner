@@ -288,7 +288,6 @@ func (r *Runner) SyncTemplate(ctx context.Context) (*RunReport, error) {
 			continue
 		}
 
-		rc := rc // capture
 		sem <- struct{}{}
 		wg.Add(1)
 		go func() {
@@ -380,7 +379,6 @@ func (r *Runner) Validate(ctx context.Context) (*RunReport, error) {
 			continue
 		}
 
-		rc := rc // capture
 		sem <- struct{}{}
 		wg.Add(1)
 		go func() {

@@ -127,16 +127,22 @@ func (w *Workspace) newGitCmd(ctx context.Context, args ...string) (*exec.Cmd, e
 	var cmd *exec.Cmd
 	switch bin {
 	case "/usr/local/sbin/git":
+		//nolint:gosec // git binary comes from a fixed allowlist; args are passed directly without shell expansion.
 		cmd = exec.CommandContext(ctx, "/usr/local/sbin/git", args...)
 	case "/usr/local/bin/git":
+		//nolint:gosec // git binary comes from a fixed allowlist; args are passed directly without shell expansion.
 		cmd = exec.CommandContext(ctx, "/usr/local/bin/git", args...)
 	case "/usr/sbin/git":
+		//nolint:gosec // git binary comes from a fixed allowlist; args are passed directly without shell expansion.
 		cmd = exec.CommandContext(ctx, "/usr/sbin/git", args...)
 	case "/usr/bin/git":
+		//nolint:gosec // git binary comes from a fixed allowlist; args are passed directly without shell expansion.
 		cmd = exec.CommandContext(ctx, "/usr/bin/git", args...)
 	case "/sbin/git":
+		//nolint:gosec // git binary comes from a fixed allowlist; args are passed directly without shell expansion.
 		cmd = exec.CommandContext(ctx, "/sbin/git", args...)
 	case "/bin/git":
+		//nolint:gosec // git binary comes from a fixed allowlist; args are passed directly without shell expansion.
 		cmd = exec.CommandContext(ctx, "/bin/git", args...)
 	default:
 		return nil, fmt.Errorf("git binary %q is outside the fixed allowlist", bin)

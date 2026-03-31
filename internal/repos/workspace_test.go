@@ -95,7 +95,7 @@ func TestWorkspace_Remove_ExistingDir(t *testing.T) {
 
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %v\n%s", args, err, out)
@@ -242,12 +242,12 @@ func TestWorkspaceEnsure_ExistingCloneFetchesLatest(t *testing.T) {
 		t.Fatalf("Ensure() unexpected error: %v", err)
 	}
 
-	headCmd := exec.Command("git", "-C", clonePath, "rev-parse", "HEAD")
+	headCmd := exec.CommandContext(context.Background(), "git", "-C", clonePath, "rev-parse", "HEAD")
 	headOut, err := headCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rev-parse HEAD failed: %v\n%s", err, headOut)
 	}
-	remoteCmd := exec.Command("git", "-C", remotePath, "rev-parse", "refs/heads/main")
+	remoteCmd := exec.CommandContext(context.Background(), "git", "-C", remotePath, "rev-parse", "refs/heads/main")
 	remoteOut, err := remoteCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rev-parse remote failed: %v\n%s", err, remoteOut)
@@ -269,7 +269,7 @@ func TestWorkspaceEnsure_SanitizesTokenizedOrigin(t *testing.T) {
 		t.Fatalf("sanitizeOrigin() unexpected error: %v", err)
 	}
 
-	cmd := exec.Command("git", "-C", clonePath, "remote", "get-url", "origin")
+	cmd := exec.CommandContext(context.Background(), "git", "-C", clonePath, "remote", "get-url", "origin")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("remote get-url failed: %v\n%s", err, out)

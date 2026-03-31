@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // DiffStatus describes the relationship between a template file and a repo file.
@@ -60,13 +61,13 @@ func diffOneFile(templateDir, repoDir, templatePath string, safePatterns []strin
 		return FileDiff{}, fmt.Errorf("computing relative path: %w", err)
 	}
 
-	templateContent, err := os.ReadFile(templatePath)
+	templateContent, err := readValidatedFile(templateDir, templatePath)
 	if err != nil {
 		return FileDiff{}, fmt.Errorf("reading template file %q: %w", templatePath, err)
 	}
 
 	repoPath := filepath.Join(repoDir, rel)
-	repoContent, err := os.ReadFile(repoPath)
+	repoContent, err := readValidatedFile(repoDir, repoPath)
 	if os.IsNotExist(err) {
 		return FileDiff{
 			Path:     rel,
@@ -98,6 +99,23 @@ func diffOneFile(templateDir, repoDir, templatePath string, safePatterns []strin
 		Template: string(templateContent),
 		Repo:     string(repoContent),
 	}, nil
+}
+
+func readValidatedFile(root, path string) ([]byte, error) {
+	rootClean := filepath.Clean(root)
+	pathClean := filepath.Clean(path)
+	rel, err := filepath.Rel(rootClean, pathClean)
+	if err != nil {
+		return nil, fmt.Errorf("computing relative path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("path %q escapes root %q", path, root)
+	}
+	content, err := os.ReadFile(pathClean)
+	if err != nil {
+		return nil, err
+	}
+	return content, nil
 }
 
 func diffStatusForChange(relPath string, safePatterns []string) (DiffStatus, error) {

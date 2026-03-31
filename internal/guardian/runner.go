@@ -47,6 +47,7 @@ func (g *GuardianRunner) Check(ctx context.Context, repo string) (*GuardianResul
 	}
 
 	// exec.Command does not invoke a shell; binary and args are passed as-is.
+	//nolint:gosec // binary is configured by the caller; args are passed directly without shell expansion.
 	cmd := exec.CommandContext(ctx, binary, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	// Build a minimal environment: only GITHUB_TOKEN.
 	// Parent shell environment is not forwarded to prevent accidental

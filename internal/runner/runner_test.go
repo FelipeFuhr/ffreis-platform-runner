@@ -85,7 +85,7 @@ func repoSafeName(repo string) string {
 // runCmd is a small helper to run git commands, fataling on error.
 func runCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("runCmd %v in %s: %v\n%s", args, dir, err, out)

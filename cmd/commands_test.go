@@ -193,7 +193,7 @@ func TestValidateCmd_RunE_NoRepos(t *testing.T) {
 
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %v\n%s", args, err, out)
@@ -421,7 +421,7 @@ func TestPlanAllCmd_RunE_FailureExitsOne(t *testing.T) {
 	writeStubBin(t, binDir, "terraform", "#!/bin/sh\nprintf '%s\n' 'boom' 1>&2\nexit 1\n")
 	configPath := writeEnabledConfig(t, repo)
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestCommandFailureSubprocess")
+	cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=TestCommandFailureSubprocess")
 	cmd.Env = append(os.Environ(),
 		"RUNNER_CMD_FAILURE_MODE=plan",
 		"RUNNER_CMD_CONFIG="+configPath,
@@ -444,7 +444,7 @@ func TestValidateCmd_RunE_FailureExitsOne(t *testing.T) {
 	writeStubBin(t, binDir, "platform-guardian", "#!/bin/sh\nprintf '%s' '{\"passed\":false,\"failures\":[{\"id\":1}]}'\n")
 	configPath := writeEnabledConfig(t, "acme/repo")
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestCommandFailureSubprocess")
+	cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=TestCommandFailureSubprocess")
 	cmd.Env = append(os.Environ(),
 		"RUNNER_CMD_FAILURE_MODE=validate",
 		"RUNNER_CMD_CONFIG="+configPath,
