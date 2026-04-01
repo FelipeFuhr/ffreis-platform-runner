@@ -1,3 +1,5 @@
+.scannerwork
+
 # If you prefer the allow list template instead of the deny list, see community template:
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
@@ -30,3 +32,45 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+
+# Build output
+platform-runner
+dist/
+
+# Go build cache
+vendor/
+*.test
+
+# Secrets and config — never commit these
+.env
+.env.*
+*.tfvars
+*.tfvars.json
+*.tfstate
+*.tfstate.backup
+secrets.*
+*secret*
+*credentials*
+
+# Workspace directory (local git clones)
+workspace/
+
+# Real repo list — copy from configs/repos.yaml.example and fill in your repos
+configs/repos.yaml
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage.out
+coverage.html
+
