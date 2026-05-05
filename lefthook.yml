@@ -8,9 +8,7 @@ remotes:
 pre-push:
   parallel: false
   commands:
-    integration-tests:
-      run: make test-integration
-    quality-gates:
-      run: make quality-gates
-    generated-drift:
-      run: make hook-generated-drift
+    tests:
+      run: make test
+    ci:
+      run: make ci
