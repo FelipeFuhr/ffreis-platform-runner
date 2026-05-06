@@ -4,16 +4,19 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ffreis/platform-runner/internal/ui"
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print build information",
 	Run: func(cmd *cobra.Command, _ []string) {
-		out := newCommandOutput(cmd.OutOrStdout(), nil)
-		if d, err := buildDeps(cmd); err == nil {
-			out = newCommandOutput(cmd.OutOrStdout(), d.ui)
+		presenter, err := ui.New(flagUI)
+		if err != nil {
+			presenter = nil // fall back to plain text output
 		}
+		out := newCommandOutput(cmd.OutOrStdout(), presenter)
 
 		v := strings.TrimSpace(version)
 		if v == "" {
