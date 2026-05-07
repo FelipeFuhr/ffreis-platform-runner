@@ -45,7 +45,7 @@ jobs:
   
   fmt:
     name: Format (gofmt)
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@706807616c7887b62bf1f5c72050db843add3828
     with:
       go-version: ${{ vars.GO_VERSION || '1.25.8' }}
       working-directory: "."
@@ -82,7 +82,7 @@ jobs:
   test:
     name: Test
     needs: [fmt]
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@706807616c7887b62bf1f5c72050db843add3828
     with:
       go-version: ${{ vars.GO_VERSION || '1.25.8' }}
       working-directory: "."
