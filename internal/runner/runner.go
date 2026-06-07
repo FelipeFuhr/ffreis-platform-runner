@@ -94,7 +94,9 @@ type progressReporter interface {
 
 type noopProgressReporter struct{}
 
-func (noopProgressReporter) Report(string, string, string) {}
+func (noopProgressReporter) Report(string, string, string) {
+	// no-op: progress reporting is intentionally disabled when no UI is available.
+}
 
 type stderrProgressReporter struct {
 	ui  *ui.Presenter
@@ -563,17 +565,7 @@ func (r *Runner) Validate(ctx context.Context) (*RunReport, error) {
 			if !guardianResult.Passed {
 				status = RepoStatusFailed
 			}
-			statusKind := "ok"
-			statusLabel := "ok"
-			statusDetail := "all checks passed"
-			if status == RepoStatusFailed {
-				statusKind = "error"
-				statusLabel = "fail"
-				statusDetail = guardianResult.ErrMsg
-				if statusDetail == "" {
-					statusDetail = "guardian reported failures"
-				}
-			}
+			statusKind, statusLabel, statusDetail := guardianProgressArgs(status, guardianResult.ErrMsg)
 			r.progress(statusKind, statusLabel, rc.Name, statusDetail+" in "+r.formatDuration(started))
 
 			mu.Lock()
@@ -634,6 +626,19 @@ func (r *Runner) reportDuration(startedAt, finishedAt string) string {
 		return r.ui.Duration(finished.Sub(started))
 	}
 	return finished.Sub(started).Round(100 * time.Millisecond).String()
+}
+
+// guardianProgressArgs returns the (kind, label, detail) triple used in a
+// progress call after a guardian check completes.
+func guardianProgressArgs(status RepoStatus, errMsg string) (kind, label, detail string) {
+	if status == RepoStatusFailed {
+		detail = errMsg
+		if detail == "" {
+			detail = "guardian reported failures"
+		}
+		return "error", "fail", detail
+	}
+	return "ok", "ok", "all checks passed"
 }
 
 func syncSummary(result *template.SyncResult, duration string) string {

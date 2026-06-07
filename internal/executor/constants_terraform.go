@@ -9,4 +9,6 @@ const (
 	terraformPlanFile = "plan.tfplan"
 
 	errApplyConfirmRequired = "apply requires --confirm flag"
+
+	errRunningTerraform = "running terraform %s: %w"
 )

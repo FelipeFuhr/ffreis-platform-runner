@@ -95,7 +95,10 @@ func TestWorkspace_Remove_ExistingDir(t *testing.T) {
 
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.CommandContext(context.Background(), "git", args...)
+	// safe.bareRepository=all allows operating inside bare repos created in
+	// temp dirs, which git 2.38+ blocks by default with safe.bareRepository=explicit.
+	all := append([]string{"-c", "safe.bareRepository=all"}, args...)
+	cmd := exec.CommandContext(context.Background(), "git", all...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %v\n%s", args, err, out)
@@ -247,7 +250,7 @@ func TestWorkspaceEnsure_ExistingCloneFetchesLatest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rev-parse HEAD failed: %v\n%s", err, headOut)
 	}
-	remoteCmd := exec.CommandContext(context.Background(), "git", "-C", remotePath, "rev-parse", "refs/heads/main")
+	remoteCmd := exec.CommandContext(context.Background(), "git", "-c", "safe.bareRepository=all", "-C", remotePath, "rev-parse", "refs/heads/main")
 	remoteOut, err := remoteCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rev-parse remote failed: %v\n%s", err, remoteOut)

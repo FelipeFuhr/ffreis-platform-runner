@@ -31,7 +31,7 @@ func (t *TerraformExecutor) Plan(ctx context.Context, opts ExecOptions) (*ExecRe
 
 	binary, err := resolveCommand(terraformBinary, opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("running terraform %s: %w", terraformSubcommandPlan, err)
+		return nil, fmt.Errorf(errRunningTerraform, terraformSubcommandPlan, err)
 	}
 
 	// binary is resolved from terraformBinary (constant) via resolveCommand
@@ -52,7 +52,7 @@ func (t *TerraformExecutor) Plan(ctx context.Context, opts ExecOptions) (*ExecRe
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			return nil, fmt.Errorf("running terraform %s: %w", terraformSubcommandPlan, err)
+			return nil, fmt.Errorf(errRunningTerraform, terraformSubcommandPlan, err)
 		}
 	}
 
@@ -96,7 +96,7 @@ func (t *TerraformExecutor) Apply(ctx context.Context, opts ExecOptions) (*ExecR
 
 	binary, err := resolveCommand(terraformBinary, opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("running terraform %s: %w", terraformSubcommandApply, err)
+		return nil, fmt.Errorf(errRunningTerraform, terraformSubcommandApply, err)
 	}
 
 	// binary is resolved from terraformBinary (constant) via resolveCommand
@@ -117,7 +117,7 @@ func (t *TerraformExecutor) Apply(ctx context.Context, opts ExecOptions) (*ExecR
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			return nil, fmt.Errorf("running terraform %s: %w", terraformSubcommandApply, err)
+			return nil, fmt.Errorf(errRunningTerraform, terraformSubcommandApply, err)
 		}
 	}
 

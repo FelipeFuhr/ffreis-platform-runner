@@ -44,59 +44,71 @@ func TestDiffStatusForChange(t *testing.T) {
 	}
 }
 
-func TestDiff_ErrorAndVariants(t *testing.T) {
-	t.Run("missing template dir", func(t *testing.T) {
-		_, err := Diff(filepath.Join(t.TempDir(), "missing"), t.TempDir(), nil)
-		if err == nil || !strings.Contains(err.Error(), "walking template dir") {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
+func TestDiff_MissingTemplateDir(t *testing.T) {
+	_, err := Diff(filepath.Join(t.TempDir(), "missing"), t.TempDir(), nil)
+	if err == nil || !strings.Contains(err.Error(), "walking template dir") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
 
-	t.Run("diff one file variants", func(t *testing.T) {
-		root := t.TempDir()
-		templateDir := filepath.Join(root, "template")
-		repoDir := filepath.Join(root, "repo")
-		if err := os.MkdirAll(templateDir, 0o755); err != nil {
-			t.Fatalf("MkdirAll(templateDir): %v", err)
-		}
-		if err := os.MkdirAll(repoDir, 0o755); err != nil {
-			t.Fatalf("MkdirAll(repoDir): %v", err)
-		}
+func TestDiff_OneFileVariants(t *testing.T) {
+	templateDir, repoDir, templatePath, repoPath := setupDiffDirs(t)
 
-		templatePath := filepath.Join(templateDir, "README.md")
-		if err := os.WriteFile(templatePath, []byte("template"), 0o644); err != nil {
-			t.Fatalf("WriteFile(template): %v", err)
-		}
-
-		diff, err := diffOneFile(templateDir, repoDir, templatePath, []string{"*.md"})
-		if err != nil {
-			t.Fatalf("diffOneFile() unexpected error: %v", err)
-		}
+	t.Run("source only when repo file absent", func(t *testing.T) {
+		diff := mustDiffOneFile(t, templateDir, repoDir, templatePath, []string{"*.md"})
 		if diff.Status != DiffSourceOnly {
 			t.Fatalf("status = %q, want %q", diff.Status, DiffSourceOnly)
 		}
+	})
 
-		repoPath := filepath.Join(repoDir, "README.md")
-		if err := os.WriteFile(repoPath, []byte("template"), 0o644); err != nil {
-			t.Fatalf("WriteFile(repo): %v", err)
-		}
-		diff, err = diffOneFile(templateDir, repoDir, templatePath, []string{"*.md"})
-		if err != nil {
-			t.Fatalf("diffOneFile() unexpected error: %v", err)
-		}
+	t.Run("same when repo file matches template", func(t *testing.T) {
+		mustWriteFile(t, repoPath, "template")
+		diff := mustDiffOneFile(t, templateDir, repoDir, templatePath, []string{"*.md"})
 		if diff.Status != DiffSame {
 			t.Fatalf("status = %q, want %q", diff.Status, DiffSame)
 		}
+	})
 
-		if err := os.WriteFile(repoPath, []byte("repo"), 0o644); err != nil {
-			t.Fatalf("WriteFile(repo): %v", err)
-		}
-		diff, err = diffOneFile(templateDir, repoDir, templatePath, []string{"*.md"})
-		if err != nil {
-			t.Fatalf("diffOneFile() unexpected error: %v", err)
-		}
+	t.Run("safe when repo file differs and matches safe pattern", func(t *testing.T) {
+		mustWriteFile(t, repoPath, "repo")
+		diff := mustDiffOneFile(t, templateDir, repoDir, templatePath, []string{"*.md"})
 		if diff.Status != DiffSafe {
 			t.Fatalf("status = %q, want %q", diff.Status, DiffSafe)
 		}
 	})
+}
+
+// setupDiffDirs creates a temporary template dir and repo dir with a single
+// template file, returning the relevant paths for diff tests.
+func setupDiffDirs(t *testing.T) (templateDir, repoDir, templatePath, repoPath string) {
+	t.Helper()
+	root := t.TempDir()
+	templateDir = filepath.Join(root, "template")
+	repoDir = filepath.Join(root, "repo")
+	if err := os.MkdirAll(templateDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(templateDir): %v", err)
+	}
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(repoDir): %v", err)
+	}
+	templatePath = filepath.Join(templateDir, "README.md")
+	mustWriteFile(t, templatePath, "template")
+	repoPath = filepath.Join(repoDir, "README.md")
+	return templateDir, repoDir, templatePath, repoPath
+}
+
+func mustWriteFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q): %v", path, err)
+	}
+}
+
+func mustDiffOneFile(t *testing.T, templateDir, repoDir, templatePath string, safePatterns []string) FileDiff {
+	t.Helper()
+	diff, err := diffOneFile(templateDir, repoDir, templatePath, safePatterns)
+	if err != nil {
+		t.Fatalf("diffOneFile() unexpected error: %v", err)
+	}
+	return diff
 }
