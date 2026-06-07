@@ -14,6 +14,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -34,7 +35,7 @@ jobs:
       contents: read
       actions: read
       security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-gitleaks.yml@d9792d01b442d7f2d3d2c6855cb312d885594e0f # v1.2.1
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-gitleaks.yml@caa797cc7baec52e99f21b86f532a4b7c88cf4fa # fix/grype-install-outside-scan-path
     with:
       working-directory: "."
       scan-history: true
@@ -51,6 +52,7 @@ jobs:
 
   # ── 3. Vet + Lint ──────────────────────────────────────────────────────────
   lint:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     timeout-minutes: 15
     name: Lint (vet + golangci-lint)
     permissions:
@@ -96,6 +98,7 @@ jobs:
       coverage-artifact-name: "coverage"
 
   govulncheck:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     timeout-minutes: 15
     name: Dependency Security (govulncheck)
     permissions:
@@ -148,6 +151,7 @@ jobs:
 
   # ── 6. Container final image ───────────────────────────────────────────────
   container-build:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     timeout-minutes: 30
     name: Container (final + push)
     permissions:
