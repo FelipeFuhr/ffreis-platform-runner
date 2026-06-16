@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ffreis/platform-cli/pkg/ui"
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 )
 
 var versionCmd = &cobra.Command{

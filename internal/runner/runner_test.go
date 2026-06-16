@@ -12,10 +12,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
+
 	"github.com/ffreis/platform-runner/internal/config"
 	"github.com/ffreis/platform-runner/internal/executor"
 	"github.com/ffreis/platform-runner/internal/logging"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 const (

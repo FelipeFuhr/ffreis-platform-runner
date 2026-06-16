@@ -9,9 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
+
 	"github.com/ffreis/platform-runner/internal/config"
 	"github.com/ffreis/platform-runner/internal/logging"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 var (
