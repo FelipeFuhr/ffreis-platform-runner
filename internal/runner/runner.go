@@ -13,13 +13,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
+
 	"github.com/ffreis/platform-runner/internal/config"
 	"github.com/ffreis/platform-runner/internal/executor"
 	"github.com/ffreis/platform-runner/internal/guardian"
 	"github.com/ffreis/platform-runner/internal/logging"
 	"github.com/ffreis/platform-runner/internal/repos"
 	"github.com/ffreis/platform-runner/internal/template"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 // panicErrPrefix is the standard prefix for ErrMsg fields produced by a
