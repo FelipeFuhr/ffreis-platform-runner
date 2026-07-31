@@ -2,7 +2,7 @@ module github.com/ffreis/platform-runner
 
 go 1.25.8
 
-toolchain go1.25.11
+toolchain go1.25.12
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
@@ -16,7 +16,7 @@ require (
 require github.com/charmbracelet/lipgloss v1.1.0 // indirect
 
 require (
-	github.com/FelipeFuhr/ffreis-platform-cli v0.2.0
+	github.com/FelipeFuhr/ffreis-platform-cli v0.3.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
