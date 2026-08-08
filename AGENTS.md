@@ -11,6 +11,17 @@ and status reporting. Containerized.
 - **Includes a Containerfile** for OCI image builds — the binary is intended to run
   in containers, not only locally.
 
+- **gremlins CLI takes exactly one bare path.** `gremlins unleash [path]` does not
+  understand Go's `/...` recursive wildcard and does not accept multiple positional
+  path args (hard-errors with `accepts at most 1 arg(s), received 2`). `MUTATION_PACKAGES`
+  in the `Makefile` (and `packages:` in `.github/workflows/mutation.yml`) must stay a
+  single bare directory (e.g. `./internal`) — gremlins recurses into subpackages on
+  its own. Also, gremlins' default per-mutant timeout is aggressive under concurrent
+  system load and can make most/all mutants spuriously report `TIMED OUT`, which
+  silently skews "Test efficacy" (computed only from Killed/(Killed+Lived), ignoring
+  timeouts). If a run shows a high timeout count, re-run with
+  `--timeout-coefficient 10 --workers 2` before trusting the efficacy number.
+
 ## Structure
 
 ```
