@@ -19,7 +19,7 @@ LEFTHOOK_DIR     ?= $(CURDIR)/.bin
 LEFTHOOK_BIN     ?= $(LEFTHOOK_DIR)/lefthook
 
 .PHONY: all build install test test-short vet lint tidy clean check fmt fmt-check sec ci \
-        validate plan mutation-test coverage-gate quality-gates help \
+        validate plan mutation coverage-gate integration-coverage-gate quality-gates help \
         container-build container-test container-run container-push \
         secrets-scan-staged lefthook-bootstrap lefthook-install lefthook-run lefthook
 
@@ -87,6 +87,11 @@ coverage-gate:
 	@COVERAGE_MIN="$(COVERAGE_MIN)" COVERAGE_PACKAGES="$(COVERAGE_PACKAGES)" \
 		./scripts/hooks/check_coverage_gate.sh
 
+## integration-coverage-gate: run //go:build integration tests with coverage; fail if below COVERAGE_MIN (no-op if none exist)
+integration-coverage-gate:
+	@COVERAGE_MIN="$(COVERAGE_MIN)" COVERAGE_PACKAGES="$(COVERAGE_PACKAGES)" \
+		./scripts/hooks/check_integration_coverage_gate.sh
+
 COVERAGE_MIN      ?= 75
 COVERAGE_PACKAGES ?= ./...
 
@@ -121,8 +126,8 @@ secrets-scan-staged:
 	@command -v $(GITLEAKS) >/dev/null 2>&1 || (echo "Missing tool: $(GITLEAKS). Install: https://github.com/gitleaks/gitleaks#installing" && exit 1)
 	$(GITLEAKS) protect --staged --redact
 
-## 
-PLATFORM_STANDARDS_SHA := 3c787edb4e96ddea2e86b2add2c32139685e8db7  # v1.2.1
+# v1.10.0
+PLATFORM_STANDARDS_SHA := 273842219190739c6b462c21331b234271446b13
 PLATFORM_STANDARDS_RAW := https://raw.githubusercontent.com/FelipeFuhr/ffreis-platform-standards
 
 HOOK_SCRIPTS := \
@@ -198,8 +203,8 @@ container-shell:
 	  --entrypoint /bin/sh \
 	  $(IMAGE_NAME):test
 
-## mutation-test: run mutation testing with gremlins (slow — intended for CI/weekly)
-mutation-test: ## Run mutation testing with gremlins (slow — CI only)
+## mutation: run mutation testing with gremlins (slow — intended for CI/weekly)
+mutation: ## Run mutation testing with gremlins (slow — CI only)
 	@which gremlins >/dev/null 2>&1 || go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 	gremlins unleash --threshold-efficacy $(MUTATION_THRESHOLD) $(MUTATION_PACKAGES)
 

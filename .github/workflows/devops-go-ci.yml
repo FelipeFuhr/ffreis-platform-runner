@@ -25,7 +25,7 @@ jobs:
     permissions:
       contents: read
       actions: write
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-mod-tidy-check.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-mod-tidy-check.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
       go-version: "1.25.8"
       working-directory: "."
@@ -34,7 +34,7 @@ jobs:
     permissions:
       contents: read
       actions: write
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
       go-version: "1.25.8"
       working-directory: "."
@@ -45,7 +45,7 @@ jobs:
       contents: read
       actions: write
       pull-requests: read # scan-fix(permissions-mirror): go-lint.yml needs this for golangci-lint-action
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-lint.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-lint.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
       go-version: "1.25.8"
       working-directory: "."
@@ -57,8 +57,30 @@ jobs:
       contents: read
       actions: write
       id-token: write # scan-fix(permissions-mirror): go-test.yml needs this for L2 S3 cache OIDC
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
       go-version: "1.25.8"
       working-directory: "."
+
+  coverage:
+    if: ${{ !github.event.pull_request.draft }}
+    needs: [fmt]
+    permissions:
+      contents: read
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-coverage.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+      coverage-threshold: 75
+
+  integration-coverage:
+    if: ${{ !github.event.pull_request.draft }}
+    needs: [fmt]
+    permissions:
+      contents: read
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-integration-coverage.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+      coverage-threshold: 75
 
