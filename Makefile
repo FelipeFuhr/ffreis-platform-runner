@@ -13,7 +13,12 @@ IMAGE_TAG        ?= dev
 GITLEAKS         ?= gitleaks
 LEFTHOOK_VERSION ?= 1.7.10
 
-MUTATION_PACKAGES ?= ./internal/runner/... ./internal/executor/...
+# scan-fix(gremlins:cli-usage): gremlins' `unleash [path]` accepts exactly one
+# bare path (no Go `/...` wildcard, no multiple positional args — passing two
+# `/...`-suffixed paths hard-errors with "accepts at most 1 arg(s), received
+# 2"). `./internal` recurses into all subpackages on its own and also broadens
+# mutation coverage beyond the original two-package list.
+MUTATION_PACKAGES ?= ./internal
 MUTATION_THRESHOLD ?= 60
 LEFTHOOK_DIR     ?= $(CURDIR)/.bin
 LEFTHOOK_BIN     ?= $(LEFTHOOK_DIR)/lefthook
