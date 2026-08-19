@@ -7,7 +7,10 @@
 #   final    — minimal distroless image containing only the binary
 
 # ─── builder ────────────────────────────────────────────────────────────────
-FROM golang:1.25.8-alpine AS builder
+# scan-fix(trivy:CVE-2026-56860,CVE-2026-56862): bump base image — 1.25.8's
+# stdlib carries the same net/url and crypto/tls CVEs already fixed by the
+# go.mod toolchain bump; the container was still baking in the old runtime.
+FROM golang:1.25.13-alpine AS builder
 
 WORKDIR /src
 

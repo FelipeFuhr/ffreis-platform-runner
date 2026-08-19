@@ -21,7 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.25.8"
+  # scan-fix(govulncheck:stdlib-cve): was 1.25.8 — carried 5 stdlib CVEs
+  # (net/url, crypto/tls, encoding/xml, encoding/asn1, net/http/idna) fixed
+  # in 1.25.13; also fed the Containerfile-built image Trivy flags.
+  GO_VERSION: "1.25.13"
   GOLANGCI_LINT_VERSION: "v2.11.3"
   IMAGE: ${{ github.event.repository.name }}
 
@@ -40,14 +43,14 @@ jobs:
       working-directory: "."
       scan-history: true
       upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-  
+
   fmt:
     name: Format (gofmt)
     permissions:
       contents: read
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
-      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
+      go-version: ${{ vars.GO_VERSION || '1.25.13' }}
       working-directory: "."
 
   # ── 3. Vet + Lint ──────────────────────────────────────────────────────────
@@ -90,9 +93,9 @@ jobs:
     permissions:
       contents: read
       id-token: write # scan-fix(permissions-mirror): go-test.yml needs this for L2 S3 cache OIDC
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
-      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
+      go-version: ${{ vars.GO_VERSION || '1.25.13' }}
       working-directory: "."
       test-timeout: "120s"
       run-govulncheck: false
