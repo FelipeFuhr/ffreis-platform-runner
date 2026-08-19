@@ -93,6 +93,27 @@ func TestWorkspace_Remove_ExistingDir(t *testing.T) {
 	}
 }
 
+// minimalGitEnv returns an explicit, minimal environment for test-spawned
+// git subprocesses — never the inherited ambient one.
+//
+// scan-fix(test:gitdir-leak): when this suite runs under `go test` invoked by
+// git's own pre-push hook, GIT_DIR/GIT_WORK_TREE are set in the parent
+// process and leak to any child `git` that inherits os.Environ(),
+// redirecting these fixture-repo operations onto the real outer repo instead
+// of the intended temp dir (observed: "cannot force update the branch 'main'
+// used by worktree..."). Mirrors the isolation Workspace.gitEnv() already
+// applies to the production code path.
+func minimalGitEnv() []string {
+	env := []string{
+		"PATH=" + fixedGitPath,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	}
+	return env
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	// safe.bareRepository=all allows operating inside bare repos created in
@@ -100,6 +121,7 @@ func runGit(t *testing.T, dir string, args ...string) {
 	all := append([]string{"-c", "safe.bareRepository=all"}, args...)
 	cmd := exec.CommandContext(context.Background(), "git", all...)
 	cmd.Dir = dir
+	cmd.Env = minimalGitEnv()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %v\n%s", args, err, out)
 	}
@@ -246,11 +268,13 @@ func TestWorkspaceEnsure_ExistingCloneFetchesLatest(t *testing.T) {
 	}
 
 	headCmd := exec.CommandContext(context.Background(), "git", "-C", clonePath, "rev-parse", "HEAD")
+	headCmd.Env = minimalGitEnv()
 	headOut, err := headCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rev-parse HEAD failed: %v\n%s", err, headOut)
 	}
 	remoteCmd := exec.CommandContext(context.Background(), "git", "-c", "safe.bareRepository=all", "-C", remotePath, "rev-parse", "refs/heads/main")
+	remoteCmd.Env = minimalGitEnv()
 	remoteOut, err := remoteCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rev-parse remote failed: %v\n%s", err, remoteOut)
@@ -273,6 +297,7 @@ func TestWorkspaceEnsure_SanitizesTokenizedOrigin(t *testing.T) {
 	}
 
 	cmd := exec.CommandContext(context.Background(), "git", "-C", clonePath, "remote", "get-url", "origin")
+	cmd.Env = minimalGitEnv()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("remote get-url failed: %v\n%s", err, out)

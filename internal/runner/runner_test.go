@@ -30,7 +30,30 @@ const (
 	gitTestUserName     = "Test"
 	gitInitialCommitMsg = "init"
 	gitDefaultBranch    = "master"
+
+	// scan-fix(test:gitdir-leak): fixed PATH for test-spawned git — see
+	// minimalGitEnv() below.
+	fixedTestGitPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
+
+// minimalGitEnv returns an explicit, minimal environment for test-spawned
+// git subprocesses — never the inherited ambient one.
+//
+// When this suite runs under `go test` invoked by git's own pre-push hook,
+// GIT_DIR/GIT_WORK_TREE are set in the parent process and leak to any child
+// `git` that inherits os.Environ(), redirecting these fixture-repo
+// operations onto the real outer repo instead of the intended temp dir
+// (observed: "cannot force update the branch 'main' used by worktree...").
+func minimalGitEnv() []string {
+	env := []string{
+		"PATH=" + fixedTestGitPath,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	}
+	return env
+}
 
 // mockExecutor is a test double for executor.Executor.
 type mockExecutor struct {
@@ -99,6 +122,9 @@ func runCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
 	cmd.Dir = dir
+	if args[0] == "git" {
+		cmd.Env = minimalGitEnv()
+	}
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("runCmd %v in %s: %v\n%s", args, dir, err, out)
 	}

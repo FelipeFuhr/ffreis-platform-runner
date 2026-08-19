@@ -3,8 +3,13 @@ repos:
   rev: v8.16.3
   hooks:
   - id: gitleaks
+# scan-fix(pre-commit:golangci-config-version): v1.52.2 predates this repo's
+# .golangci.yml v2 schema (`version: "2"`) and fails "Can't read config: ...
+# 'Version' expected a map, got 'string'" on any commit touching .go files.
+# Bumped to v2.11.4 to match the golangci-lint binary `make lint` already
+# uses directly (0 issues).
 - repo: https://github.com/golangci/golangci-lint
-  rev: v1.52.2
+  rev: v2.11.4
   hooks:
   - id: golangci-lint
 - repo: https://github.com/jumanjihouse/pre-commit-hooks

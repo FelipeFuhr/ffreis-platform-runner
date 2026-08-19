@@ -266,10 +266,27 @@ func TestDeliverFlemmingCmd_RunE_InvokesMakeWithResolvedRepos(t *testing.T) {
 	deliverFlemmingPublishPrefix = ""
 }
 
+// scan-fix(test:gitdir-leak): fixed PATH for test-spawned git subprocesses —
+// never the inherited ambient environment. When this suite runs under `go
+// test` invoked by git's own pre-push hook, GIT_DIR/GIT_WORK_TREE are set in
+// the parent process and leak to any child `git` that inherits os.Environ(),
+// redirecting these fixture-repo operations onto the real outer repo instead
+// of the intended temp dir (observed: "cannot force update the branch
+// 'main' used by worktree...").
+const fixedTestGitPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Dir = dir
+	env := []string{
+		"PATH=" + fixedTestGitPath,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	}
+	cmd.Env = env
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %v\n%s", args, err, out)
 	}
