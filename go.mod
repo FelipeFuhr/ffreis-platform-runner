@@ -2,7 +2,10 @@ module github.com/ffreis/platform-runner
 
 go 1.25.8
 
-toolchain go1.25.12
+// scan-fix(govulncheck:GO-2026-6218,GO-2026-6090,GO-2026-6088,GO-2026-5972,GO-2026-5026):
+// bump toolchain to pick up 5 stdlib CVE fixes (net/url, crypto/tls,
+// encoding/xml, encoding/asn1, net/http via golang.org/x/net/idna).
+toolchain go1.25.13
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
