@@ -1,0 +1,23 @@
+# Example config for `platform-runner deliver --delivery-config <path>`.
+#
+# All values below are fictional placeholders. Copy this file, rename it,
+# and fill in the real product's repos and domain settings — do not commit
+# that file to this (or any other public) repository. A .json file with the
+# same keys is also accepted; the format is chosen by file extension.
+
+# Required: the four repos deliver ensures in the local workspace before
+# running `make go-deliver` in infra_repo.
+infra_repo: your-org/acme-infra
+website_repo: your-org/acme-website
+compiler_repo: your-org/acme-website-compiler
+packer_repo: your-org/acme-website-packer
+
+# Optional: passed through to `make go-deliver` as DOMAIN_NAME,
+# WWW_DOMAIN_NAME, and ROUTE53_ZONE_NAME. Leave blank to use go-deliver's
+# own defaults.
+domain_name: acme.example.com
+www_domain_name: www.acme.example.com
+route53_zone_name: acme.example.com
+
+# Optional: passed through as WEBSITE_PUBLISH_PREFIX.
+publish_prefix: live

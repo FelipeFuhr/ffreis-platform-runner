@@ -18,7 +18,7 @@ Commands:
 - `apply-all` — `terraform apply` across all enabled repos × environments. Requires `--confirm` to actually run; `--dry-run` and `--confirm` are mutually exclusive. `--concurrency` (default 3).
 - `sync-template` — copies files from `--template-dir` (required) into each repo. `--safe-patterns` lists globs safe to overwrite unconditionally.
 - `validate` — runs the external `platform-guardian` binary per repo (token passed via env, not flag) and reports pass/fail. `--rules-dir` selects the guardian rules directory.
-- `deliver-flemming` — orchestrates an infra + website delivery by ensuring four repos in the workspace and invoking `make go-deliver` in the infra repo. Requires `--confirm`.
+- `deliver` — orchestrates an infra + website delivery for one product by ensuring its four repos (infra, website, compiler, packer) in the workspace and invoking `make go-deliver` in the infra repo. The product's repos and domain settings come from a YAML or JSON file passed via `--delivery-config` (required) — see `configs/delivery.yaml.example`; individual `--infra-repo`/`--website-repo`/`--compiler-repo`/`--packer-repo`/`--domain-name`/`--www-domain-name`/`--route53-zone-name`/`--publish-prefix` flags override the config. Requires `--confirm`.
 - `version` — prints version, commit, and build time (injected at link time).
 
 Persistent flags: `--config`, `--log-level` (debug/info/warn/error, default info), `--dry-run`, `--workspace` (default `./workspace`), `--token`, `--ui` (auto/plain/rich).
@@ -41,6 +41,9 @@ make build
 # Sync template files / validate against platform-guardian
 ./bin/platform-runner sync-template --config configs/repos.yaml --template-dir ./template
 ./bin/platform-runner validate --config configs/repos.yaml --rules-dir ./rules
+
+# Deliver a product's infra + website (requires explicit confirmation)
+./bin/platform-runner deliver --delivery-config ./my-product-delivery.yaml --confirm
 ```
 
 Config format — see `configs/repos.yaml.example`:
@@ -56,7 +59,22 @@ repos:
     enabled: false
 ```
 
-External tools expected on `PATH` at runtime: `git`, `terraform` (for plan/apply), and `platform-guardian` (for validate).
+Delivery config format — see `configs/delivery.yaml.example` (fictional placeholder values; the real, product-specific file is never committed to this public repo — create it locally or load it from a private config store):
+
+```yaml
+infra_repo: your-org/acme-infra
+website_repo: your-org/acme-website
+compiler_repo: your-org/acme-website-compiler
+packer_repo: your-org/acme-website-packer
+domain_name: acme.example.com
+www_domain_name: www.acme.example.com
+route53_zone_name: acme.example.com
+publish_prefix: live
+```
+
+A `.json` file with the same keys is accepted too (format is chosen by file extension). `infra_repo`, `website_repo`, `compiler_repo`, and `packer_repo` are required; the domain fields are optional and fall back to `make go-deliver`'s own defaults when left blank.
+
+External tools expected on `PATH` at runtime: `git`, `terraform` (for plan/apply), `platform-guardian` (for validate), and `make` (for deliver, which also expects a `go-deliver` target in the infra repo's Makefile).
 
 ### Container
 
