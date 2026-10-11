@@ -1,11 +1,15 @@
 module github.com/ffreis/platform-runner
 
-go 1.25.8
+go 1.26.0
 
-// scan-fix(govulncheck:GO-2026-6218,GO-2026-6090,GO-2026-6088,GO-2026-5972,GO-2026-5026):
-// bump toolchain to pick up 5 stdlib CVE fixes (net/url, crypto/tls,
-// encoding/xml, encoding/asn1, net/http via golang.org/x/net/idna).
-toolchain go1.25.13
+// scan-fix(govulncheck:GO-2026-6218,GO-2026-6090,GO-2026-6088,GO-2026-5972,GO-2026-5026,
+// GO-2026-6617,GO-2026-6613,GO-2026-6612,GO-2026-6611,GO-2026-6610,GO-2026-6608,
+// GO-2026-6607,GO-2026-6605,GO-2026-6603):
+// bump toolchain to pick up stdlib CVE fixes (net/url, crypto/tls, encoding/xml,
+// encoding/asn1, net/http, net/textproto). go1.26.9 supersedes the prior
+// go1.25.13 bump -- it carries that fix set forward plus 9 further reachable
+// net/http|net/textproto|crypto/tls CVEs that go1.25.13 alone did not cover.
+toolchain go1.26.9
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
