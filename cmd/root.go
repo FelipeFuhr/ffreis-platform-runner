@@ -151,7 +151,7 @@ func init() {
 
 	rootCmd.AddCommand(planAllCmd)
 	rootCmd.AddCommand(applyAllCmd)
-	rootCmd.AddCommand(deliverFlemmingCmd)
+	rootCmd.AddCommand(deliverCmd)
 	rootCmd.AddCommand(syncTemplateCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(versionCmd)

@@ -49,6 +49,19 @@ func restoreCommandGlobals(t *testing.T) {
 	origTemplateDir := syncTemplateDir
 	origSafePatterns := append([]string(nil), syncTemplateSafePatterns...)
 	origRulesDir := validateRulesDir
+	origDeliverConfirm := deliverConfirm
+	origDeliverEnv := deliverEnv
+	origDeliverOrg := deliverOrg
+	origDeliverProfile := deliverProfile
+	origDeliverConfigPath := deliverConfigPath
+	origDeliverInfraRepo := deliverInfraRepo
+	origDeliverWebsiteRepo := deliverWebsiteRepo
+	origDeliverCompilerRepo := deliverCompilerRepo
+	origDeliverPackerRepo := deliverPackerRepo
+	origDeliverDomainName := deliverDomainName
+	origDeliverWWWDomainName := deliverWWWDomainName
+	origDeliverRoute53ZoneName := deliverRoute53ZoneName
+	origDeliverPublishPrefix := deliverPublishPrefix
 
 	t.Cleanup(func() {
 		flagConfig = origConfig
@@ -63,6 +76,19 @@ func restoreCommandGlobals(t *testing.T) {
 		syncTemplateDir = origTemplateDir
 		syncTemplateSafePatterns = origSafePatterns
 		validateRulesDir = origRulesDir
+		deliverConfirm = origDeliverConfirm
+		deliverEnv = origDeliverEnv
+		deliverOrg = origDeliverOrg
+		deliverProfile = origDeliverProfile
+		deliverConfigPath = origDeliverConfigPath
+		deliverInfraRepo = origDeliverInfraRepo
+		deliverWebsiteRepo = origDeliverWebsiteRepo
+		deliverCompilerRepo = origDeliverCompilerRepo
+		deliverPackerRepo = origDeliverPackerRepo
+		deliverDomainName = origDeliverDomainName
+		deliverWWWDomainName = origDeliverWWWDomainName
+		deliverRoute53ZoneName = origDeliverRoute53ZoneName
+		deliverPublishPrefix = origDeliverPublishPrefix
 	})
 }
 
@@ -176,28 +202,70 @@ func TestValidateCmd_RunE_NoRepos(t *testing.T) {
 	}
 }
 
-func TestDeliverFlemmingCmd_RunE_RequiresConfirm(t *testing.T) {
+func writeDeliveryConfig(t *testing.T, infraRepo, websiteRepo, compilerRepo, packerRepo string) string {
+	t.Helper()
+
+	f, err := os.CreateTemp("", "runner-delivery-*.yaml")
+	if err != nil {
+		t.Fatalf("CreateTemp(): %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(f.Name()) })
+
+	content := `
+infra_repo: ` + infraRepo + `
+website_repo: ` + websiteRepo + `
+compiler_repo: ` + compilerRepo + `
+packer_repo: ` + packerRepo + `
+domain_name: acme.example.com
+www_domain_name: www.acme.example.com
+route53_zone_name: acme.example.com
+`
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("WriteString(): %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close(): %v", err)
+	}
+	return f.Name()
+}
+
+func TestDeliverCmd_RunE_RequiresConfirm(t *testing.T) {
 	restoreCommandGlobals(t)
 
 	flagLogLevel = "info"
 	flagWorkspace = t.TempDir()
 	flagUI = "plain"
-	deliverFlemmingConfirm = false
+	deliverConfirm = false
 
-	deliverFlemmingCmd.SetContext(context.Background())
-	if err := deliverFlemmingCmd.RunE(deliverFlemmingCmd, nil); err == nil || err.Error() != "--confirm is required" {
+	deliverCmd.SetContext(context.Background())
+	if err := deliverCmd.RunE(deliverCmd, nil); err == nil || err.Error() != "--confirm is required" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestDeliverFlemmingCmd_RunE_InvokesMakeWithResolvedRepos(t *testing.T) {
+func TestDeliverCmd_RunE_RequiresDeliveryConfig(t *testing.T) {
+	restoreCommandGlobals(t)
+
+	flagLogLevel = "info"
+	flagWorkspace = t.TempDir()
+	flagUI = "plain"
+	deliverConfirm = true
+	deliverConfigPath = ""
+
+	deliverCmd.SetContext(context.Background())
+	if err := deliverCmd.RunE(deliverCmd, nil); err == nil || err.Error() != "--delivery-config is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDeliverCmd_RunE_InvokesMakeWithResolvedRepos(t *testing.T) {
 	restoreCommandGlobals(t)
 
 	workspace := t.TempDir()
-	infraRepo := "acme/flemming-infra"
-	websiteRepo := "acme/flemming-website"
-	compilerRepo := "acme/website-compiler"
-	packerRepo := "acme/website-packer"
+	infraRepo := "acme/acme-infra"
+	websiteRepo := "acme/acme-website"
+	compilerRepo := "acme/acme-website-compiler"
+	packerRepo := "acme/acme-website-packer"
 
 	setupWorkspaceRepo(t, workspace, infraRepo)
 	setupWorkspaceRepo(t, workspace, websiteRepo)
@@ -213,24 +281,17 @@ func TestDeliverFlemmingCmd_RunE_InvokesMakeWithResolvedRepos(t *testing.T) {
 	flagLogLevel = "info"
 	flagWorkspace = workspace
 	flagUI = "plain"
-	deliverFlemmingConfirm = true
-	deliverFlemmingInfraRepo = infraRepo
-	deliverFlemmingWebsiteRepo = websiteRepo
-	deliverFlemmingCompilerRepo = compilerRepo
-	deliverFlemmingPackerRepo = packerRepo
-	deliverFlemmingEnv = "prod"
-	deliverFlemmingOrg = "ffreis"
-	deliverFlemmingProfile = "bootstrap-admin"
-	deliverFlemmingDomainName = "ffreis.com"
-	deliverFlemmingWWWDomainName = "www.ffreis.com"
-	deliverFlemmingRoute53ZoneName = "ffreis.com"
-	deliverFlemmingPublishPrefix = ""
+	deliverConfirm = true
+	deliverConfigPath = writeDeliveryConfig(t, infraRepo, websiteRepo, compilerRepo, packerRepo)
+	deliverEnv = "prod"
+	deliverOrg = "acme"
+	deliverProfile = "bootstrap-admin"
 
 	var stdout bytes.Buffer
-	deliverFlemmingCmd.SetContext(context.Background())
-	deliverFlemmingCmd.SetOut(&stdout)
-	deliverFlemmingCmd.SetErr(&stdout)
-	if err := deliverFlemmingCmd.RunE(deliverFlemmingCmd, nil); err != nil {
+	deliverCmd.SetContext(context.Background())
+	deliverCmd.SetOut(&stdout)
+	deliverCmd.SetErr(&stdout)
+	if err := deliverCmd.RunE(deliverCmd, nil); err != nil {
 		t.Fatalf("RunE() unexpected error: %v", err)
 	}
 
@@ -239,31 +300,63 @@ func TestDeliverFlemmingCmd_RunE_InvokesMakeWithResolvedRepos(t *testing.T) {
 		t.Fatalf("ReadFile(trace): %v", err)
 	}
 	traceText := string(trace)
-	if !strings.Contains(traceText, filepath.Join(workspace, "acme-flemming-infra")+":go-deliver") {
+	if !strings.Contains(traceText, filepath.Join(workspace, "acme-acme-infra")+":go-deliver") {
 		t.Fatalf("unexpected make trace: %s", traceText)
 	}
-	if !strings.Contains(traceText, "WEBSITE_ROOT="+filepath.Join(workspace, "acme-flemming-website")) {
+	if !strings.Contains(traceText, "WEBSITE_ROOT="+filepath.Join(workspace, "acme-acme-website")) {
 		t.Fatalf("missing website root in make trace: %s", traceText)
 	}
-	if !strings.Contains(traceText, "DOMAIN_NAME=ffreis.com") {
+	if !strings.Contains(traceText, "DOMAIN_NAME=acme.example.com") {
 		t.Fatalf("missing domain override in make trace: %s", traceText)
 	}
-	if !strings.Contains(stdout.String(), "flemming delivery completed through platform-runner") {
+	if !strings.Contains(stdout.String(), "delivery completed through platform-runner") {
 		t.Fatalf("unexpected output: %s", stdout.String())
 	}
+}
 
-	deliverFlemmingConfirm = false
-	deliverFlemmingInfraRepo = "FelipeFuhr/ffreis-flemming-infra"
-	deliverFlemmingWebsiteRepo = "FelipeFuhr/flemming-website"
-	deliverFlemmingCompilerRepo = "FelipeFuhr/ffreis-website-compiler"
-	deliverFlemmingPackerRepo = "FelipeFuhr/ffreis-website-packer"
-	deliverFlemmingEnv = "prod"
-	deliverFlemmingOrg = ""
-	deliverFlemmingProfile = ""
-	deliverFlemmingDomainName = ""
-	deliverFlemmingWWWDomainName = ""
-	deliverFlemmingRoute53ZoneName = ""
-	deliverFlemmingPublishPrefix = ""
+func TestDeliverCmd_RunE_FlagsOverrideDeliveryConfig(t *testing.T) {
+	restoreCommandGlobals(t)
+
+	workspace := t.TempDir()
+	configInfraRepo := "acme/config-infra"
+	overrideInfraRepo := "acme/override-infra"
+	websiteRepo := "acme/acme-website"
+	compilerRepo := "acme/acme-website-compiler"
+	packerRepo := "acme/acme-website-packer"
+
+	setupWorkspaceRepo(t, workspace, overrideInfraRepo)
+	setupWorkspaceRepo(t, workspace, websiteRepo)
+	setupWorkspaceRepo(t, workspace, compilerRepo)
+	setupWorkspaceRepo(t, workspace, packerRepo)
+
+	binDir := t.TempDir()
+	traceFile := filepath.Join(t.TempDir(), "make-trace.txt")
+	writeStubBin(t, binDir, "make", "#!/bin/sh\nset -eu\necho \"$PWD:$@\" >> \"$TRACE_FILE\"\n")
+	withPatchedPath(t, binDir)
+	t.Setenv("TRACE_FILE", traceFile)
+
+	flagLogLevel = "info"
+	flagWorkspace = workspace
+	flagUI = "plain"
+	deliverConfirm = true
+	deliverConfigPath = writeDeliveryConfig(t, configInfraRepo, websiteRepo, compilerRepo, packerRepo)
+	deliverInfraRepo = overrideInfraRepo
+
+	var stdout bytes.Buffer
+	deliverCmd.SetContext(context.Background())
+	deliverCmd.SetOut(&stdout)
+	deliverCmd.SetErr(&stdout)
+	if err := deliverCmd.RunE(deliverCmd, nil); err != nil {
+		t.Fatalf("RunE() unexpected error: %v", err)
+	}
+
+	trace, err := os.ReadFile(traceFile)
+	if err != nil {
+		t.Fatalf("ReadFile(trace): %v", err)
+	}
+	if !strings.Contains(string(trace), filepath.Join(workspace, "acme-override-infra")+":go-deliver") {
+		t.Fatalf("expected override repo in make trace: %s", string(trace))
+	}
 }
 
 // scan-fix(test:gitdir-leak): fixed PATH for test-spawned git subprocesses —
